@@ -59,7 +59,13 @@ function ldf_hubspot_page() {
 
 
 
+
+/**
+ *  Let's build a form
+ */
 function ldf_hubspot_form($form, &$form_state) {
+
+  //Using the hubspot data, let us gather all that contrib module has saved thus far
   $tp_results = db_query('SELECT nid, hubspot_guid, webform_field, hubspot_field FROM {hubspot}');
 
 
@@ -88,6 +94,7 @@ foreach ( $tp_results as $row ) {
 $ct_results = db_query('SELECT nid, title FROM {node} WHERE type = :type', array(':type' => 'webform'));
 
 // Let's grab the forms from hubspot.
+// We will have to do this again. Why? Because my code stinks.
 $hubspot_forms = _hubspot_get_forms();
 
 $hs_options[] = '-- Choose Hubspot Forms --';
@@ -161,21 +168,15 @@ $form['dropdown_second'] = array(
   '#default_value' => $value_content_element,
 );
 
-
-/**
- *   SUBMIT
- */
 $form['submit'] = array(
   '#type' => 'submit',
   '#value' => 'Submit',
 );
 
+
 $form['#submit'][] = 'ldf_hubspot_form_submit';
 
-
-/**
- *   FORM ARRAY
- */
+// Remember that table we built? Lets print it!
 $form['markup'] = array(
   '#markup' => theme('table', array('header' => $header, 'rows' => $rows)),
   '#title' => t(''),
@@ -185,6 +186,10 @@ $form['markup'] = array(
 
 }
 
+
+/**
+ *  Ajax callbacks
+ */
 function ldf_hubspot_ajax_callback($form, $form_state) {
   return $form['dropdown_first'];
 }
@@ -205,7 +210,9 @@ function ldf_hubspot_second_dropdown_options() {
     }
 }
 
-
+/**
+ *  Drupal webform field dropdown
+ */
 function ldf_hubspot_first_dropdown_options_components($value_dropdown_first) {
   $ce_results = db_query('SELECT form_key, name FROM {webform_component} WHERE nid = :nid', array(':nid' => $value_dropdown_first));
     foreach ( $ce_results as $row ) {
@@ -214,6 +221,9 @@ function ldf_hubspot_first_dropdown_options_components($value_dropdown_first) {
   return $options;
 }
 
+/**
+ *  Hubspot form field dropdown
+ */
 function ldf_hubspot_second_dropdown_options_components($value_dropdown_second) {
   $guid_values = explode('_', $value_dropdown_second);
   // Let's build a form AGAIN!!!
@@ -228,7 +238,9 @@ function ldf_hubspot_second_dropdown_options_components($value_dropdown_second) 
 }
 
 
-
+/**
+ *  Let's submit this and map that form field!
+ */
 function ldf_hubspot_form_submit($form, $form_state) {
   if (is_numeric($form_state['input']['content_type'])) {
     db_insert('hubspot')
@@ -242,6 +254,7 @@ function ldf_hubspot_form_submit($form, $form_state) {
      ->execute();
    }
     else {
+       // just in case, we don't want to crash
        drupal_set_message('Nid must be an integer.');
   }
 }
