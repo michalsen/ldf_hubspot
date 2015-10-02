@@ -1,0 +1,9 @@
+; $Id: $
+name = LDF Hubspot
+description = Large Data Fix for Hubspot contrib
+core = "7.x"
+package = Hubspot Custom
+
+dependencies[] = hubspot
+
+

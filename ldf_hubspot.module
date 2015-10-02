@@ -1,0 +1,245 @@
+<?php
+/**
+ *  @file
+ *  LDF Hubspot
+ *  Found an issue where if you have a lot of fields you will either
+ *  have to up your max_vars_input in the php.ini or manually edit the
+ *  hubspot database table.
+ *  This is temp fix for that.
+ *
+ *  Hubspot Drupal contrib does indeed need to be installed and running
+ *  if this module is to be used!
+ */
+
+
+/**
+ *  There are cleaner ways of doing this, but will work for now
+ */
+function ldf_hubspot_init() {
+  if (isset($_REQUEST['ldf_hubspot_delete']) ) {
+      $var = explode('_', $_REQUEST['ldf_hubspot_delete']);
+        db_delete('hubspot')
+          ->condition('nid', $var[0])
+          ->condition('hubspot_guid', $var[1])
+          ->execute();
+        }
+      }
+
+/**
+ *  There are cleaner ways of doing this, but will work for now
+ */
+function ldf_hubspot_menu() {
+  $items = array();
+  $items['admin/ldf_hubspot'] = array(
+              'title' => 'LDF Hubspot',
+              'page callback' => 'ldf_hubspot_page',
+              'access arguments' => array('access ldf_hubspot content'),
+              'description' => 'LDF Hubspot Control Page',
+              'access callback' => TRUE,
+              'type' => MENU_NORMAL_ITEM,
+          );
+   return $items;
+}
+
+function ldf_hubspot_page() {
+  // Are you an admin? Hope so.
+  // Obviously this should be based on permissions, not hard-coded role.
+  // This should be fixed!!!
+    global $user;
+  if ($user->uid == 1) {
+    return drupal_get_form('ldf_hubspot_form');
+  }
+   else {
+  // ...or else returnes a blank page
+    return drupal_get_form();
+  }
+}
+
+
+
+function ldf_hubspot_form($form, &$form_state) {
+  $tp_results = db_query('SELECT nid, hubspot_guid, webform_field, hubspot_field FROM {hubspot}');
+
+
+// Let's build a table
+$rows = array();
+$header = array('Delete',
+                  'Webform NID',
+                  'Hubspot Form GUID',
+                  'Drupal Webform Field',
+                  'Hubspot Form Field');
+
+foreach ( $tp_results as $row ) {
+  $rows[] = array('<a href="/admin/ldf_hubspot?ldf_hubspot_delete=' .
+            $row->nid . '_' .
+            $row->hubspot_guid . '" name=' .
+            $row->nid . '>X</a>',
+  $rows[] = $row->nid,
+  $rows[] = $row->hubspot_guid,
+  $rows[] = $row->webform_field,
+  $rows[] = $row->hubspot_field);
+}
+
+
+
+
+$ct_results = db_query('SELECT nid, title FROM {node} WHERE type = :type', array(':type' => 'webform'));
+
+// Let's grab the forms from hubspot.
+$hubspot_forms = _hubspot_get_forms();
+
+$hs_options[] = '-- Choose Hubspot Forms --';
+foreach ($hubspot_forms['value'] as $key => $value) {
+  $hs_options[$key . '_' . $value['guid']] = $value['name'];
+}
+
+$options_first = ldf_hubspot_first_dropdown_options();
+$options_second = ldf_hubspot_second_dropdown_options();
+$options_first_element = array();
+
+$ct_options[] = '-- Choose Drupal Webform --';
+  foreach ( $ct_results as $row ) {
+    $ct_options[$row->nid] = $row->title;
+  }
+
+$wf_options[] = '-- Webforms --';
+  foreach ( $wf_results as $row ) {
+    $wf_options[$row->nid] = $row->title;
+  }
+
+
+$value_dropdown_first         = isset($form_state['values']['content_type']) ? $form_state['values']['content_type'] : key(array($options_first));
+$value_dropdown_first_element = isset($form_state['values']['webforms']) ? $form_state['values']['webforms'] : key(array($options_first_element));
+$value_content_element        = isset($form_state['values']['dropdown_first']);
+
+$value_dropdown_second        = isset($form_state['values']['guid']) ? $form_state['values']['guid'] : key(array($options_second));
+
+
+// Let's build a form
+$form['content_type'] = array(
+  '#type' => 'select',
+  '#title' => t('Drupal Webform'),
+  '#options' => $ct_options,
+  '#default_value' => $value_dropdown_first,
+  '#ajax' => array(
+    'event' => 'change',
+    'callback' => 'ldf_hubspot_ajax_callback',
+    'wrapper' => 'dropdown_first_replace',
+    'effect' => 'fade'
+    ),
+);
+
+$form['dropdown_first'] = array(
+  '#type' => 'select',
+  '#title' => 'Drupal Webform Fields',
+  '#prefix' => '<div id="dropdown_first_replace">',
+  '#suffix' => '</div>',
+  '#options' => ldf_hubspot_first_dropdown_options_components($value_dropdown_first),
+  '#default_value' => $value_content_element,
+);
+
+$form['guid'] = array(
+  '#type' => 'select',
+  '#title' => t('Hubspot Webform'),
+  '#options' => $hs_options,
+  '#default_value' => $value_dropdown_second,
+  '#ajax' => array(
+    'event' => 'change',
+    'callback' => 'ldf_hubspot_ajax_callback_element',
+    'wrapper' => 'dropdown_second',
+    ),
+);
+
+$form['dropdown_second'] = array(
+  '#type' => 'select',
+  '#title' => 'Hubspot Form Fields',
+  '#prefix' => '<div id="dropdown_second">',
+  '#suffix' => '</div>',
+  '#options' => ldf_hubspot_second_dropdown_options_components($value_dropdown_second),
+  '#default_value' => $value_content_element,
+);
+
+
+/**
+ *   SUBMIT
+ */
+$form['submit'] = array(
+  '#type' => 'submit',
+  '#value' => 'Submit',
+);
+
+$form['#submit'][] = 'ldf_hubspot_form_submit';
+
+
+/**
+ *   FORM ARRAY
+ */
+$form['markup'] = array(
+  '#markup' => theme('table', array('header' => $header, 'rows' => $rows)),
+  '#title' => t(''),
+);
+
+  return $form;
+
+}
+
+function ldf_hubspot_ajax_callback($form, $form_state) {
+  return $form['dropdown_first'];
+}
+
+function ldf_hubspot_ajax_callback_element($form, $form_state) {
+  return $form['dropdown_second'];
+}
+
+function ldf_hubspot_first_dropdown_options() {
+     if ( isset($ct_results) ) {
+      return $ct_results;
+    }
+}
+
+function ldf_hubspot_second_dropdown_options() {
+     if ( isset($wf_results) ) {
+      return $wf_results;
+    }
+}
+
+
+function ldf_hubspot_first_dropdown_options_components($value_dropdown_first) {
+  $ce_results = db_query('SELECT form_key, name FROM {webform_component} WHERE nid = :nid', array(':nid' => $value_dropdown_first));
+    foreach ( $ce_results as $row ) {
+      $options[$row->form_key] = $row->name;
+    }
+  return $options;
+}
+
+function ldf_hubspot_second_dropdown_options_components($value_dropdown_second) {
+  $guid_values = explode('_', $value_dropdown_second);
+  // Let's build a form AGAIN!!!
+  // This is goofy, and needs to be fixed.
+  $hubspot_forms = _hubspot_get_forms();
+  if (strlen($value_dropdown_second) > 1) {
+    foreach ($hubspot_forms['value'][$guid_values[0]]['fields'] as $key => $value) {
+      $options[$value['name']] = $value['label'];
+    }
+  }
+  return $options;
+}
+
+
+
+function ldf_hubspot_form_submit($form, $form_state) {
+  if (is_numeric($form_state['input']['content_type'])) {
+    db_insert('hubspot')
+      ->fields(array('nid', 'hubspot_guid', 'webform_field', 'hubspot_field'))
+      ->values(array(
+        'nid'           => $form_state['input']['content_type'],
+        'hubspot_guid'  => $form_state['input']['guid'],
+        'webform_field' => $form_state['input']['dropdown_first'],
+        'hubspot_field' => $form_state['input']['dropdown_second'],
+       ))
+     ->execute();
+   }
+    else {
+       drupal_set_message('Nid must be an integer.');
+  }
+}
