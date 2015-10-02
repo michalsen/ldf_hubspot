@@ -25,9 +25,7 @@ function ldf_hubspot_init() {
         }
       }
 
-/**
- *  There are cleaner ways of doing this, but will work for now
- */
+
 function ldf_hubspot_menu() {
   $items = array();
   $items['admin/ldf_hubspot'] = array(
@@ -41,6 +39,10 @@ function ldf_hubspot_menu() {
    return $items;
 }
 
+
+/**
+ *  Yes, this is pretty ratty way of doing this. Sorry.
+ */
 function ldf_hubspot_page() {
   // Are you an admin? Hope so.
   // Obviously this should be based on permissions, not hard-coded role.
