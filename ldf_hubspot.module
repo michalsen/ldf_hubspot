@@ -31,9 +31,9 @@ function ldf_hubspot_menu() {
   $items['admin/ldf_hubspot'] = array(
               'title' => 'LDF Hubspot',
               'page callback' => 'ldf_hubspot_page',
-              'access arguments' => array('access ldf_hubspot content'),
+              'access arguments' => array('administer access control'),
+              'access callback' => 'user_access',
               'description' => 'LDF Hubspot Control Page',
-              'access callback' => TRUE,
               'type' => MENU_NORMAL_ITEM,
           );
    return $items;
@@ -44,18 +44,9 @@ function ldf_hubspot_menu() {
  *  Yes, this is pretty ratty way of doing this. Sorry.
  */
 function ldf_hubspot_page() {
-  // Are you an admin? Hope so.
-  // Obviously this should be based on permissions, not hard-coded role.
-  // This should be fixed!!!
-    global $user;
-  if ($user->uid == 1) {
     return drupal_get_form('ldf_hubspot_form');
-  }
-   else {
-  // ...or else returnes a blank page
-    return drupal_get_form();
-  }
 }
+
 
 
 
